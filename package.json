@@ -1,8 +1,8 @@
 {
   "name": "dsh-herdr-site",
   "version": "0.1.0",
-  "description": "DeepSeek Harness custom integration for Herdr (terminal workspace manager): reports agent lifecycle state via `pane report-agent` so Herdr tracks dsh/cc-tui panes as first-class agents.",
-  "author": "wujue",
+  "description": "让 Herdr 认识 DSH 面板：把 agent 的 working/idle/blocked 状态报给 Herdr，支持面板跳转与 --wait。状态上报 / 终端集成。",
+  "author": "WuJiaoJue",
   "license": "MIT",
   "repository": {
     "type": "git",
