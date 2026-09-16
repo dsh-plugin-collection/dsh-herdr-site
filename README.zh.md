@@ -69,6 +69,21 @@ fiber 销毁时调用 `pane release-agent`，不会留下过期条目。上报�
   任何实现了 `pane report-agent` / `pane release-agent` 的版本都能用。
 - **DSH**：`cc-tui` 与 `dsh-tui` 两个 profile 都能用——插件只挂接会话事件
   总线，不依赖具体 surface 实现。
+- **DSH 内核代次**：`peerDependencies` 逐个枚举已验证的内核版本
+  （`^0.1.0-rc.6 || ^0.1.1-rc.2 || ^0.1.2-rc.1`）。2026-09-07 在隔离 home 中
+  对现用的两代内核实测：
+
+  | 内核 | host 入口加载 | `apply` 执行 | `session/event` + `agent/status` 注册 |
+  |---|---|---|---|
+  | 0.1.1-rc.2 | ✅ | ✅ | ✅ |
+  | 0.1.2-rc.1 | ✅ | ✅ | ✅ |
+
+  `apply` 是否执行由插入其中的打印探针确认——单看"没报错"不足证，bundle 的
+  patch 没进层叠栈时是被静默跳过的。代码无需改动：插件只用到 `ctx.on(...)`、
+  `ctx.effect(...)` 与 `process.env`，不碰任何单代独有 API。上游发新 rc 时
+  必须补进枚举：node-semver 默认不把预发布版算进任何范围，除非比较符带同一
+  `[major,minor,patch]` 元组，因此 `^0.1.1-rc.2` 对 `0.1.2-rc.1` 求值为假
+  （连 `*` 也是假）。缺项会让安装器在宿主那份之外再解析出一份同名包。
 
 已知边界：
 
@@ -80,8 +95,8 @@ fiber 销毁时调用 `pane release-agent`，不会留下过期条目。上报�
 
 前提：已安装可用的 [dsh](https://github.com/deepseek-ai/deepseek-harness)，
 且带有 `dsh-cc-tui`/`dsh-base` profile。插件把 profile 自带的包（`^4` 的
-`@deepseek-ai/cordis`、`dsh-session`、`dsh-agent`）声明为 peer 依赖，由宿主
-profile 提供。
+`@deepseek-ai/cordis`，以及按已验证内核代次逐个枚举的 `dsh-session`、
+`dsh-agent`——见[兼容性](#兼容性)）声明为 peer 依赖，由宿主 profile 提供。
 
 **npm 安装（推荐，预构建产物，无需授权）：**
 

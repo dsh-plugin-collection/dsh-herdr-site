@@ -75,6 +75,24 @@ nothing is read.
   version that implements `pane report-agent` / `pane release-agent` works.
 - **DSH**: works with both the `cc-tui` and `dsh-tui` profiles — the plugin
   only hooks the session event bus and is independent of the surface.
+- **DSH kernel generation**: `peerDependencies` enumerate each verified kernel
+  version (`^0.1.0-rc.6 || ^0.1.1-rc.2 || ^0.1.2-rc.1`), measured 2026-09-07
+  against both in-use generations in isolated homes:
+
+  | kernel | host entry loads | `apply` runs | `session/event` + `agent/status` register |
+  |---|---|---|---|
+  | 0.1.1-rc.2 | ✅ | ✅ | ✅ |
+  | 0.1.2-rc.1 | ✅ | ✅ | ✅ |
+
+  Verified by a probe printed inside `apply` — "no error" alone would not prove
+  the plugin was actually activated, since a bundle whose patch is not layered
+  in is skipped silently. No code change was required: the plugin uses only
+  `ctx.on(...)`, `ctx.effect(...)` and `process.env`, no single-generation API.
+  When upstream ships a new rc, add it to the enumeration — node-semver does
+  not treat a prerelease as satisfying any range unless the comparator
+  carries the same `[major,minor,patch]` tuple, so `^0.1.1-rc.2` does not
+  match `0.1.2-rc.1` (not even `*` does). A missing entry makes the installer
+  resolve a second copy of the package next to the host's.
 
 Known edges:
 
@@ -87,8 +105,10 @@ Known edges:
 
 Prerequisites: a working [dsh](https://github.com/deepseek-ai/deepseek-harness)
 installation with the `dsh-cc-tui`/`dsh-base` profile. The plugin declares the
-profile's packages (`@deepseek-ai/cordis` at `^4`, `dsh-session`,
-`dsh-agent`) as peer dependencies, supplied by the host profile.
+profile's packages (`@deepseek-ai/cordis` at `^4`, plus `dsh-session` and
+`dsh-agent` at each verified kernel generation — see
+[Compatibility](#compatibility)) as peer dependencies, supplied by the host
+profile.
 
 **From npm (recommended — prebuilt, no approval needed):**
 
