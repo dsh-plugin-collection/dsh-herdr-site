@@ -76,23 +76,62 @@ nothing is read.
 - **DSH**: works with both the `cc-tui` and `dsh-tui` profiles — the plugin
   only hooks the session event bus and is independent of the surface.
 - **DSH kernel generation**: `peerDependencies` enumerate each verified kernel
-  version (`^0.1.0-rc.6 || ^0.1.1-rc.2 || ^0.1.2-rc.1`), measured 2026-09-07
-  against both in-use generations in isolated homes:
+  version (`0.1.0-rc.6 || 0.1.1-rc.2 || 0.1.2-rc.1 || 0.2.0-rc.2`), measured
+  against each in-use generation:
 
   | kernel | host entry loads | `apply` runs | `session/event` + `agent/status` register |
   |---|---|---|---|
+  | 0.1.0-rc.6 | ✅ | ✅ | ✅ |
   | 0.1.1-rc.2 | ✅ | ✅ | ✅ |
   | 0.1.2-rc.1 | ✅ | ✅ | ✅ |
+  | 0.2.0-rc.2 | ✅ | ✅ | ✅ |
 
   Verified by a probe printed inside `apply` — "no error" alone would not prove
   the plugin was actually activated, since a bundle whose patch is not layered
   in is skipped silently. No code change was required: the plugin uses only
   `ctx.on(...)`, `ctx.effect(...)` and `process.env`, no single-generation API.
-  When upstream ships a new rc, add it to the enumeration — node-semver does
-  not treat a prerelease as satisfying any range unless the comparator
-  carries the same `[major,minor,patch]` tuple, so `^0.1.1-rc.2` does not
-  match `0.1.2-rc.1` (not even `*` does). A missing entry makes the installer
-  resolve a second copy of the package next to the host's.
+  The `agent/status` and `tool/call`/`tool/result` payload shapes were compared
+  field-by-field across all four generations and are unchanged.
+
+  The ranges are **exact versions**, not carets, and that is deliberate.
+  node-semver reads a caret in `0.x` as `>=0.1.0-rc.6 <0.2.0`, so `^0.1.0-rc.6`
+  quietly widens to cover every unreleased 0.1.x and pnpm then reports *no*
+  peer issue at all — the missing entry stays invisible until upstream crosses
+  into 0.2.0. With an exact list, a kernel that is not enumerated fails loudly
+  on install. So when upstream ships a new rc, add it: dropping it in is the
+  only way the check tells you.
+
+  What a missing entry actually costs: pnpm's default `auto-install-peers`
+  fetches a **second copy** of the package next to the host's. That copy then
+  shadows the host kernel for anything resolving from the profile — in this
+  repo's `cc-tui` profile it left a `dsh-agent@0.1.0-rc.6` directory (dated
+  weeks before the host moved to 0.2.0-rc.2) that `dsh-cc-tui` resolved to.
+  The plugin survived it only because it needs no kernel package at runtime.
+  See "Stale kernel copies" below.
+
+### Stale kernel copies
+
+Only `schemastery` is a real runtime dependency: the compiled
+`lib/index.js` imports `node:child_process` and `schemastery` and nothing else.
+The `dsh-agent` / `dsh-session` imports in the source are `import type`, which
+TypeScript erases — they exist to type the event payloads and to satisfy the
+peer range, and they contribute no runtime code. The `agent/status` and
+`session/event` surface is registered by the host profile's own kernel
+packages.
+
+So a duplicated kernel copy does not break this plugin directly; it breaks the
+profile around it. If `pnpm peers check` reports an unmet kernel peer, clear it
+with:
+
+```bash
+rm -rf ~/.dsh/profiles/<profile>/node_modules
+dsh plugin --profile <profile> add dsh-herdr-site
+```
+
+Older profile bundles can pin the stale copy themselves. `dsh-cc-tui@0.4.2`
+(renamed to `@deepseek-harness-tui/dsh-tui`) lists 17 direct dependencies at
+`^0.1.0-rc.6`, so that profile cannot resolve a newer kernel no matter what
+this plugin declares; migrate the bundle, as the `dsh-tui` profile already has.
 
 Known edges:
 
